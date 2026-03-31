@@ -14,6 +14,46 @@ This capstone project implements a complete ML pipeline across 5 phases:
 | Phase 4 | Modeling and Dashboard | `04_modeling.ipynb` |
 | Phase 5 | Model Fairness Analysis | `05_fairness.ipynb` |
 
+## Key Results
+
+| Metric | Value |
+|--------|-------|
+| **Best Model** | Gradient Boosting |
+| **R² Score** | 0.901 (90.1% variance explained) |
+| **RMSE** | $4,134 |
+| **Cross-Validation** | 0.853 ± 0.028 (5-fold) |
+| **Fairness Test** | p = 0.451 (no bias detected) |
+
+## Visualizations
+
+The project includes 18 publication-quality visualizations:
+
+### Distribution & Relationship Analysis
+- **Charges by smoker status** - Shows dramatic cost difference ($34,684 vs $8,203)
+- **Age vs charges scatter** - Linear relationship visualization
+- **BMI by region** - Geographic health patterns
+- **Charges heatmap** - Smoker/region interaction
+- **Age distribution** - Demographics breakdown
+- **KDE distributions** - Kernel density for age, BMI, charges
+
+### Feature Engineering
+- **Outlier comparison** - Before/after 99th percentile capping
+- **Correlation matrix** - Feature relationships
+- **Feature correlations** - Top predictors ranked
+- **Interaction heatmaps** - Age×BMI, Smoker×Age, Region×Children effects
+
+### Model Analysis
+- **Model performance comparison** - Gradient Boosting vs Random Forest vs Linear
+- **Feature importance** - What drives predictions
+- **Residual diagnostics** - 6-panel analysis with Cook's distance
+- **Bias analysis** - Fairness across demographic groups
+
+### Advanced Visualizations
+- **Surface plot** - 3D-style contours showing charges by age/BMI for smokers/non-smokers
+- **Regional radar** - 5-metric comparison across 4 regions
+- **Demographic flow** - Age, BMI, smoker status → charge categories
+- **Executive dashboard** - 2x2 summary for stakeholders
+
 ## How to Run
 
 ### Step 1: Navigate to Project
@@ -81,6 +121,7 @@ After running all notebooks, check the following outputs:
 - Built a robust `clean_data()` function with median/mode imputation
 - Capped outliers at the 99th percentile to preserve data while reducing skew
 - Implemented 3 automated validation checks (schema, missing values, data integrity)
+- Removed 1 duplicate row (1,338 → 1,337 records)
 
 **Why:**
 - Real-world data contains errors and extreme values that can distort model training
@@ -92,7 +133,15 @@ After running all notebooks, check the following outputs:
 
 **What we did:**
 - Applied One-Hot Encoding for categorical variables (sex, smoker, region)
-- Created domain-specific interaction features (price_per_bmi, age_bmi_risk)
+- Created 8 domain-specific features:
+  - `is_smoker` - Binary smoking indicator
+  - `sex_male` - Binary gender indicator  
+  - `bmi_category` - Ordinal BMI classification (underweight/normal/overweight/obese)
+  - `age_bmi_risk` - Interaction: age × BMI (compound risk factor)
+  - `bmi_smoker_interaction` - Interaction: BMI × smoking status
+  - `family_size` - Children + 1 (household scale)
+  - `age_squared` - Non-linear age effect
+  - `bmi_squared` - Non-linear BMI effect
 - Performed VIF (Variance Inflation Factor) analysis to detect multicollinearity
 - Pruned features with VIF > 10 to reduce redundancy
 
@@ -169,17 +218,28 @@ After running all notebooks, check the following outputs:
 
 **Linear vs Non-Linear:** 52.9% improvement over linear baseline
 
+## Data Quality Summary
+
+| Check | Result |
+|-------|--------|
+| Initial Records | 1,338 |
+| After Cleaning | 1,337 (1 duplicate removed) |
+| Missing Values | 0 |
+| Outliers Capped | 13 records (0.97%) at 99th percentile |
+| Features Engineered | 8 new features |
+| Validation Checks | 3/3 passed |
+
 ## Project Structure
 
 ```
 submission_HAMAD_ALDHUBAYB/
 |-- data/
 |   |-- raw/
-|   |   |-- insurance.csv              # Original dataset
+|   |   |-- insurance.csv              # Original dataset (1,338 rows)
 |   |-- processed/
-|       |-- insurance_cleaned.csv      # Phase 1 output
-|       |-- insurance_engineered.csv   # Phase 2 output
-|       |-- insurance_numeric.csv      # Numeric features only
+|       |-- insurance_cleaned.csv      # Phase 1 output (1,337 rows)
+|       |-- insurance_engineered.csv   # Phase 2 output (20 columns)
+|       |-- insurance_numeric.csv      # Numeric features (13 columns)
 |-- notebooks/
 |   |-- 01_cleaning.ipynb              # Phase 1: Data cleaning
 |   |-- 02_features.ipynb              # Phase 2: Feature engineering + VIF
@@ -187,10 +247,11 @@ submission_HAMAD_ALDHUBAYB/
 |   |-- 04_modeling.ipynb              # Phase 4: Dashboard + ML models
 |   |-- 05_fairness.ipynb              # Phase 5: Model fairness analysis
 |-- src/
-|   |-- utils.py                       # Production utilities
+|   |-- utils.py                       # Production utilities (882 lines)
+|   |-- advanced_viz.py                # Additional visualization functions
 |-- reports/
 |   |-- FINAL_REPORT.md                # Technical whitepaper
-|   |-- *.png                          # Generated visualizations
+|   |-- *.png                          # 18 generated visualizations
 |-- README.md                          # This file
 |-- requirements.txt                   # Locked dependencies
 ```
@@ -203,29 +264,14 @@ submission_HAMAD_ALDHUBAYB/
 - **PEP 8:** Strict style compliance
 - **Bessel's Correction:** Sample standard deviation uses (n-1) denominator
 
-## Generated Visualizations
-
-- `phase1_outlier_comparison.png` - Before/after outlier treatment
-- `phase2_correlation_matrix.png` - Feature correlations
-- `chart1_charges_by_smoker.png` - Distribution by smoking status
-- `chart2_age_charges_scatter.png` - Age vs charges
-- `chart3_bmi_charges_region.png` - Regional BMI analysis
-- `chart4_charges_heatmap.png` - Smoker/region heatmap
-- `chart5_feature_correlations.png` - Top correlations
-- `chart6_age_distribution.png` - Age demographics
-- `chart6c_distributions_kde.png` - KDE plots for key features
-- `dashboard_2x2_summary.png` - Executive dashboard
-- `residual_analysis_best_model.png` - 4-panel diagnostics
-- `feature_importance_comparison.png` - Model comparison
-- `smoker_bias_analysis.png` - Fairness analysis
-
 ## Dataset
 
-**Selected:** Medical Insurance Cost Dataset (1,338 records)
+**Medical Insurance Cost Dataset**
 
-- 1,338 rows
-- 7 columns (4 numerical, 3 categorical)
-- Target: medical charges
+- 1,338 rows (1,337 after cleaning)
+- 7 base columns (4 numerical, 3 categorical)
+- 20 columns after feature engineering
+- Target: medical charges ($1,122 - $63,770)
 - Features: age, sex, bmi, children, smoker, region
 
 ## Dependencies
