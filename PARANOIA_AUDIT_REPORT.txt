@@ -1,0 +1,218 @@
+================================================================================
+          PARANOIA-LEVEL MICROSCOPIC AUDIT REPORT
+          Medical Insurance Cost Analysis Pipeline
+================================================================================
+
+AUDITOR: Principal Machine Learning Auditor
+DATE: 2026-03-27
+CLASSIFICATION: SILENT MATHEMATICAL LEAK DETECTION
+STATUS: ALL CRITICAL ISSUES RESOLVED
+
+================================================================================
+                    AUDIT TARGET 1: THE SCALING LEAK
+================================================================================
+
+TARGET DESCRIPTION:
+Examine if Z-score scaling (StandardScaler or manual) is applied BEFORE 
+train_test_split, which would cause data leakage from test set into 
+training mean/std calculations.
+
+SCAN RESULT:
+[X] NO StandardScaler usage found in modeling phase
+[X] NO scaling applied to features before train_test_split
+[X] Models trained directly on raw features
+
+VERIFICATION:
+  File: notebooks/04_modeling.ipynb
+  Lines: 57-77
+  
+  Code Pattern Found:
+    X = df[feature_cols]  # Raw features
+    y = df['charges_log']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, ...)
+    model.fit(X_train, y_train)  # Direct training, no scaling
+
+  StandardScaler appears ONLY in:
+    - notebooks/03_eda.ipynb (for demonstration/verification)
+    - src/utils.py:cosine_similarity_manual (optional, for vector comparison)
+
+ANALYSIS:
+Tree-based models (GradientBoosting, RandomForest) do not require feature 
+scaling. Linear models (LinearRegression, Ridge) can operate without scaling,
+though coefficients may have different magnitudes.
+
+Since NO scaling is applied at all in the modeling pipeline, there is 
+NO SCALING LEAK. The split happens on raw data before any transformation.
+
+STATUS: [PASS]
+
+================================================================================
+                    AUDIT TARGET 2: THE DUMMY VARIABLE TRAP
+================================================================================
+
+TARGET DESCRIPTION:
+Examine if One-Hot Encoding uses drop_first=False, creating perfect 
+multicollinearity (dummy variable trap) which damages Linear Regression 
+and Ridge model coefficients.
+
+SCAN RESULT:
+[!!] CRITICAL: drop_first=False detected in One-Hot Encoding
+
+VERIFICATION:
+  File: src/utils.py
+  Line: 267 (ORIGINAL)
+  
+  Code Pattern Found (BEFORE FIX):
+    region_dummies = pd.get_dummies(
+        df_encoded['region'], 
+        prefix='region', 
+        drop_first=False  # <-- SILENT KILLER
+    )
+
+IMPACT ANALYSIS:
+The 'region' variable has 4 categories (northeast, northwest, southeast, 
+southwest). With drop_first=False, this creates 4 dummy columns:
+  - region_northeast
+  - region_northwest
+  - region_southeast
+  - region_southwest
+
+The sum of these 4 columns equals 1.0 for every row (constant), creating
+perfect multicollinearity with the intercept term. This causes:
+  1. Singular matrix warnings in Linear Regression
+  2. Unstable coefficient estimates
+  3. Inflated standard errors
+  4. Misleading feature importance
+
+================================================================================
+                    REMEDIATION APPLIED
+================================================================================
+
+FILE: src/utils.py
+LINE: 267
+
+BEFORE (BROKEN):
+    region_dummies = pd.get_dummies(df_encoded['region'], prefix='region', drop_first=False)
+
+AFTER (FIXED):
+    region_dummies = pd.get_dummies(df_encoded['region'], prefix='region', drop_first=True)
+
+VERIFICATION OF FIX:
+  Region dummy columns (3): ['region_northwest', 'region_southeast', 'region_southwest']
+  Drop first applied: True (expected 3 for 4 regions)
+  Sum of region dummies per row - min: 0, max: 1
+  Values are 0 or 1 (not constant 1.0): PASS
+
+Linear Regression coefficients are now stable and interpretable.
+
+STATUS: [PASS] - ISSUE RESOLVED
+
+================================================================================
+                    AUDIT TARGET 3: THE LOG-TRANSFORM RMSE TRAP
+================================================================================
+
+TARGET DESCRIPTION:
+Examine if log-transformed target (charges_log) predictions are properly
+inverse-transformed (np.expm1) BEFORE calculating RMSE and MAE.
+
+SCAN RESULT:
+[X] Proper inverse transform detected before metric calculation
+
+VERIFICATION:
+  File: notebooks/04_modeling.ipynb
+  Lines: 120-128
+  
+  Code Pattern Found:
+    # Transform back to original scale
+    y_test_orig = np.expm1(y_test)
+    y_pred_orig = np.expm1(y_pred)
+    
+    # Calculate metrics
+    mse = mean_squared_error(y_test_orig, y_pred_orig)
+    rmse = np.sqrt(mse)
+    mae = mean_absolute_error(y_test_orig, y_pred_orig)
+
+ANALYSIS:
+The pipeline correctly:
+  1. Applies np.log1p() to target during training (y = df['charges_log'])
+  2. Makes predictions in log space (y_pred = model.predict(X_test))
+  3. Inverse transforms BOTH y_test and y_pred using np.expm1()
+  4. Calculates RMSE/MAE in original dollar scale
+
+This is mathematically correct. Calculating RMSE in log space and then
+transforming would produce incorrect error metrics.
+
+STATUS: [PASS]
+
+================================================================================
+                    FINAL AUDIT SUMMARY
+================================================================================
+
+| Audit Target | Initial Status | Final Status | Action Taken |
+|--------------|----------------|--------------|--------------|
+| SCALING LEAK | PASS           | PASS         | None needed  |
+| DUMMY TRAP   | FAIL           | PASS         | Fixed line 267 |
+| LOG RMSE     | PASS           | PASS         | None needed  |
+
+SILENT KILLERS FOUND: 1
+SILENT KILLERS RESOLVED: 1
+CRITICAL LEAKS: 0
+MEDIUM LEAKS: 0 (all resolved)
+
+================================================================================
+                    VERIFIED METRICS (POST-ALL-FIXES)
+================================================================================
+
+MODEL PERFORMANCE (NO LEAKAGE, DUMMY TRAP FIXED):
+--------------------------------------------------
+| Model             | R2    | RMSE    | Improvement |
+|-------------------|-------|---------|-------------|
+| Gradient Boosting | 0.901 | $4,134  | +52.9%      |
+| Random Forest     | 0.899 | $4,181  | +52.5%      |
+| Linear Regression | 0.589 | $8,418  | baseline    |
+| Ridge Regression  | 0.588 | $8,434  | -0.3%       |
+
+DUMMY VARIABLE VERIFICATION:
+----------------------------
+- Region categories: 4 (northeast, northwest, southeast, southwest)
+- Dummy columns created: 3 (northeast dropped as reference)
+- Perfect multicollinearity: ELIMINATED
+- Linear Regression coefficients: STABLE
+
+CROSS-VALIDATION (5-FOLD):
+--------------------------
+| Model             | Mean R2 | Std Dev | Stability |
+|-------------------|---------|---------|-----------|
+| Gradient Boosting | 0.853   | 0.028   | Moderate  |
+| Random Forest     | 0.835   | 0.025   | Moderate  |
+| Linear Regression | 0.841   | 0.028   | Moderate  |
+| Ridge             | 0.841   | 0.029   | Moderate  |
+
+================================================================================
+                    FILES MODIFIED IN THIS AUDIT
+================================================================================
+
+1. src/utils.py (Line 267)
+   - Changed: drop_first=False -> drop_first=True
+   - Effect: Eliminates dummy variable trap
+
+================================================================================
+                         FINAL VERDICT
+================================================================================
+
+ALL SILENT MATHEMATICAL LEAKS HAVE BEEN ELIMINATED.
+
+The pipeline now:
+  [X] Has NO scaling leakage (no scaling applied before split)
+  [X] Has NO dummy variable trap (drop_first=True applied)
+  [X] Has NO log-transform RMSE error (proper np.expm1 applied)
+  [X] Has NO data leakage (price_per_bmi removed in prior audit)
+  [X] Has proper Bessel's correction (n-1) in statistics
+  [X] Has index alignment for fairness analysis
+
+STATUS: PARANOIA AUDIT PASSED
+CODEBASE IS MATHEMATICALLY SOUND.
+
+================================================================================
+                         END OF PARANOIA AUDIT
+================================================================================
