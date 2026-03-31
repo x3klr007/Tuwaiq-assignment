@@ -18,7 +18,7 @@ sns.set_context("paper", font_scale=1.3)
 sns.set_palette("husl")
 
 
-def create_3d_style_surface(df, save_path='reports/advanced_3d_surface.png'):
+def create_3d_style_surface(df, save_path='reports/viz_surface_age_bmi.png'):
     """
     Create a 3D-style surface visualization showing charges by age and BMI.
     Uses contourf to simulate 3D surface.
@@ -75,7 +75,7 @@ def create_3d_style_surface(df, save_path='reports/advanced_3d_surface.png'):
     return fig
 
 
-def create_radar_chart_comparison(df, save_path='reports/advanced_radar.png'):
+def create_radar_chart_comparison(df, save_path='reports/viz_radar_regions.png'):
     """
     Create radar chart comparing risk profiles across regions.
     """
@@ -130,7 +130,7 @@ def create_radar_chart_comparison(df, save_path='reports/advanced_radar.png'):
     return fig
 
 
-def create_sankey_style_flow(df, save_path='reports/advanced_sankey.png'):
+def create_sankey_style_flow(df, save_path='reports/viz_demographic_flow.png'):
     """
     Create a flow diagram showing distribution from demographics to charges.
     Uses stacked bars with connecting gradients.
@@ -229,7 +229,7 @@ def create_sankey_style_flow(df, save_path='reports/advanced_sankey.png'):
 
 
 def create_advanced_residual_analysis(y_true, y_pred, model_name='Gradient Boosting',
-                                      save_path='reports/advanced_residuals.png'):
+                                      save_path='reports/viz_residual_diagnostics.png'):
     """
     Create advanced residual analysis with confidence intervals and multiple diagnostics.
     """
@@ -358,7 +358,7 @@ def create_advanced_residual_analysis(y_true, y_pred, model_name='Gradient Boost
     return fig
 
 
-def create_interaction_heatmap(df, save_path='reports/advanced_interactions.png'):
+def create_interaction_heatmap(df, save_path='reports/viz_interaction_heatmaps.png'):
     """
     Create advanced heatmap showing feature interactions.
     """
